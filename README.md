@@ -13,75 +13,58 @@ To write a python program for creating File Transfer using TCP Sockets Links
 ### SERVER :
 ```
 import socket
-import os
 
-HOST = '127.0.0.1'
-PORT = 65432
+HOST = "0.0.0.0"
+PORT = 8080
+BUFFER_SIZE = 1024
 
-def send_file(filename, conn):
-    if os.path.isfile(filename):
-        file_size = os.path.getsize(filename)
-        conn.sendall(f"EXISTS {file_size}".encode('utf-8'))
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind((HOST, PORT))
 
-        client_response = conn.recv(1024).decode('utf-8')
-        if client_response == 'READY':
-            with open(filename, 'rb') as f:
-                chunk = f.read(1024)
-                while chunk:
-                    conn.sendall(chunk)
-                    chunk = f.read(1024)
-            print(f"File '{filename}' sent successfully.")
-    else:
-        conn.sendall(b'NOT_EXISTS')
+server_socket.listen(1)
+print("Server waiting for client...")
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-    server_socket.bind((HOST, PORT))
-    server_socket.listen()
-    print(f"File server is listening on {HOST}:{PORT}")
+conn, addr = server_socket.accept()
+print("Connected to:", addr)
 
-    while True:
-        conn, addr = server_socket.accept()
-        with conn:
-            print(f"Connected by {addr}")
-            filename = conn.recv(1024).decode('utf-8')
-            print(f"Client requested file: {filename}")
-            send_file(filename, conn)
+
+with open("send.txt", "rb") as file:
+    data = file.read()
+    conn.sendall(data)
+
+print("File sent successfully!")
+
+conn.close()
+server_socket.close()
+
 ```
 
 ### CLIENT :
 ```
 import socket
-import os
 
-HOST = '127.0.0.1'
-PORT = 65432
+SERVER_IP = "127.0.0.1"
+PORT = 8080
+BUFFER_SIZE = 1024
 
-filename = input("Enter the filename you want to download: ")
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((HOST, PORT))
-    s.sendall(filename.encode('utf-8'))
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    response = s.recv(1024).decode('utf-8')
-    if response.startswith("EXISTS"):
-        _, size = response.split()
-        file_size = int(size)
-        print(f"File '{filename}' exists on server, size: {file_size} bytes.")
 
-        s.sendall(b'READY')
-        received_size = 0
-        with open('received_' + filename, 'wb') as f:
-            while received_size < file_size:
-                data = s.recv(1024)
-                if not data:
-                    break
-                f.write(data)
-                received_size += len(data)
-                print(f"Received {received_size} of {file_size} bytes")
+client_socket.connect((SERVER_IP, PORT))
+print("Connected to server.")
 
-        print(f"File '{filename}' received and saved as 'received_{filename}'")
-    else:
-        print("File does not exist on server.")
+
+with open("received.txt", "wb") as file:
+    while True:
+        data = client_socket.recv(BUFFER_SIZE)
+        if not data:
+            break
+        file.write(data)
+
+print("File received successfully!")
+
+client_socket.close()
 
 ```
 
